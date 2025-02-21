@@ -1,30 +1,18 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
-from googletrans import Translator
-import os
+import streamlit as st
+from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
+# Load M2M100 model - better for multilingual translation
+tokenizer = M2M100Tokenizer.from_pretrained("facebook/m2m100_418M")
+model = M2M100ForConditionalGeneration.from_pretrained("facebook/m2m100_418M")
 
-app = Flask(__name__)
-translator = Translator()
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/translate', methods=['POST'])
-def translate():
-    data = request.json
-    text = data.get('text', '')
-    target_lang = data.get('target_lang', 'en')
-
-    if not text:
-        return jsonify({'error': 'No text provided'}), 400
-
-    translated_text = translator.translate(text, dest=target_lang).text
-    return jsonify({'translated_text': translated_text})
-
-# Serve Static Files (CSS & JS)
-@app.route('/static/<path:filename>')
-def static_files(filename):
-    return send_from_directory(os.path.join(app.root_path, 'static'), filename)
-
-if __name__ == '__main__':
-    app.run(debug=True)
+def translate_text(text, src_lang, tgt_lang): lang_codes = {
+"English": "en",
+"French": "fr",
+"German": "de",
+"Spanish": "es"
+}
+tokenizer.src_lang = lang_codes[src_lang] encoded = tokenizer(text, return_tensors="pt") generated_tokens = model.generate(
+**encoded, forced_bos_token_id=tokenizer.get_lang_id(lang_codes[tgt_lang])
+)
+return tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)[0]
+# Streamlit UI
+st.title("Multi-Language Translator")
